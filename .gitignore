@@ -10,3 +10,6 @@ results/
 
 # Jupyter notebook checkpoints
 .ipynb_checkpoints/
+
+# Datasets
+datasets/

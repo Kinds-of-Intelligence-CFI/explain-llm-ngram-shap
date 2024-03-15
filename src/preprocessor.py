@@ -3,6 +3,7 @@ This file is made up of code written by different authors (both internal and ext
 In the absence of specification, the code was produced by Matteo G Mecattaf.
 """
 
+import pickle
 import numpy as np
 from tqdm import tqdm
 import pandas as pd
@@ -14,20 +15,34 @@ from sklearn.feature_selection import f_classif
 
 class Preprocessor:
     def __init__(self, llms, path_to_dataset_outputs, ngram_range, top_k_ngrams, token_mode, min_document_frequency,
-                 split_ratio=0.2):
+                 num_classes, split_ratio=0.2):
         self.llms = llms
         self.path_to_results = path_to_dataset_outputs
         self.ngram_range = ngram_range
         self.top_k_ngrams = top_k_ngrams
         self.token_mode = token_mode
         self.min_document_frequency = min_document_frequency
+        self.num_classes = num_classes
         self.split_ratio = split_ratio
+
+        self.train_dict = None
+        self.val_dict = None
+        self.test_dict = None
+
+        self.train_labels_dict = None
+        self.val_labels_dict = None
+        self.test_labels_dict = None
+
+        self.x_train_dict = None
+        self.x_train_dict = None
+        self.x_train_dict = None
+        self.ngrams_dict = None
 
     def preprocess_dataset(self, ):
         results_dict = self._load_dataset_results()
-        train_dict, val_dict, test_dict = self._split_data(results_dict)
-        x_train_dict, x_val_dict, x_test_dict, ngrams_dict = self._vectorise_prompts(train_dict, val_dict, test_dict)
-        return x_train_dict, x_val_dict, x_test_dict, ngrams_dict
+        self._split_data(results_dict)
+        self._extract_labels_dicts()
+        self._vectorise_prompts(self.train_dict, self.val_dict, self.test_dict)
 
     # Authored by Marko Tesic, revised by Matteo G Mecattaf
     def _load_dataset_results(self, ):
@@ -38,35 +53,48 @@ class Preprocessor:
                     results_dict[llm]['truth_norm'] == results_dict[llm]['pred_norm']).astype(int)
         return results_dict
 
+    def _extract_labels_dicts(self, ):
+        self.train_labels_dict = {llm: self.train_dict[llm]["success"] for llm in self.llms}
+        self.val_labels_dict = {llm: self.val_dict[llm]["success"] for llm in self.llms}
+        self.test_labels_dict = {llm: self.test_dict[llm]["success"] for llm in self.llms}
+
     # Authored by Marko Tesic, revised by Matteo G Mecattaf
     def _split_data(self, results_dict, test_size=0.2):
         # Dictionaries to hold the training and test data
-        train_dict = {}
-        val_dict = {}
-        test_dict = {}
+        self.train_dict = {}
+        self.val_dict = {}
+        self.test_dict = {}
 
         for llm, df in results_dict.items():
             train_data, temp_data = train_test_split(df, test_size=test_size, random_state=42)
             val_data, test_data = train_test_split(df, test_size=test_size, random_state=42)
-            train_dict[llm] = train_data
-            val_dict[llm] = val_data
-            test_dict[llm] = test_data
-
-        return train_dict, val_dict, test_dict
+            self.train_dict[llm] = train_data
+            self.val_dict[llm] = val_data
+            self.test_dict[llm] = test_data
 
     # Authored by Google, revised by Matteo G Mecattaf
     def _vectorise_prompts(self, train_dict, val_dict, test_dict):
         # Initialise return variables
-        x_train_dict = {}
-        x_val_dict = {}
-        x_test_dict = {}
-        ngrams_dict = {}
+        self.x_train_dict = {}
+        self.x_val_dict = {}
+        self.x_test_dict = {}
+        self.ngrams_dict = {}
 
         for llm in tqdm(self.llms):
             train_texts = train_dict[llm]['prompt']
             val_texts = val_dict[llm]['prompt']
             test_texts = test_dict[llm]['prompt']
+
             train_labels = train_dict[llm]['success']
+            val_labels = val_dict[llm]["success"]
+
+            unexpected_labels = [v for v in val_labels if v not in range(self.num_classes)]
+            if len(unexpected_labels):
+                raise ValueError('Unexpected label values found in the validation set:'
+                                 ' {unexpected_labels}. Please make sure that the '
+                                 'labels in the validation set are in the same range '
+                                 'as training labels.'.format(
+                    unexpected_labels=unexpected_labels))
 
             # Create keyword arguments to pass to the 'tf-idf' vectoriser.
             kwargs = {
@@ -99,12 +127,22 @@ class Preprocessor:
             x_val = selector.transform(x_val).astype('float64')
             x_test = selector.transform(x_test).astype('float64')
 
-            x_train_dict[llm] = x_train
-            x_val_dict[llm] = x_val
-            x_test_dict[llm] = x_test
-            ngrams_dict[llm] = n_grams
+            self.x_train_dict[llm] = x_train
+            self.x_val_dict[llm] = x_val
+            self.x_test_dict[llm] = x_test
+            self.ngrams_dict[llm] = n_grams
 
-        return x_train_dict, x_val_dict, x_test_dict, ngrams_dict
+            with open('results/x_train_dict.pickle', 'wb') as handle:
+                pickle.dump(self.x_train_dict, handle, protocol=pickle.HIGHEST_PROTOCOL)
+
+            with open('results/x_val_dict.pickle', 'wb') as handle:
+                pickle.dump(self.x_val_dict, handle, protocol=pickle.HIGHEST_PROTOCOL)
+
+            with open('results/x_test_dict.pickle', 'wb') as handle:
+                pickle.dump(self.x_test_dict, handle, protocol=pickle.HIGHEST_PROTOCOL)
+
+            with open('results/ngrams_dict.pickle', 'wb') as handle:
+                pickle.dump(self.ngrams_dict, handle, protocol=pickle.HIGHEST_PROTOCOL)
 
 
 if __name__ == "__main__":
@@ -115,10 +153,11 @@ if __name__ == "__main__":
         "top_k_ngrams": 20_000,
         "token_mode": "word",
         "min_document_frequency": 2,
+        "num_classes": 2,
         "split_ratio": 0.2,
     }
 
     preprocessor = Preprocessor(**kwargs)
-    x_train_dict, x_val_dict, x_test_dict, ngram_dict = preprocessor.preprocess_dataset()
+    preprocessor.preprocess_dataset()
 
     print("Exit ok")
