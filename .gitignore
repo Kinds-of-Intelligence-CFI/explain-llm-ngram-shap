@@ -13,3 +13,6 @@ results/
 
 # Datasets
 datasets/
+
+# Ignored files
+ignore*
