@@ -15,7 +15,7 @@ from sklearn.feature_selection import f_classif
 
 class Preprocessor:
     def __init__(self, llms, path_to_dataset_outputs, ngram_range, top_k_ngrams, token_mode, min_document_frequency,
-                 num_classes, split_ratio=0.2):
+                 num_classes, split_ratio=0.2, results_path="results"):
         self.llms = llms
         self.path_to_results = path_to_dataset_outputs
         self.ngram_range = ngram_range
@@ -24,6 +24,7 @@ class Preprocessor:
         self.min_document_frequency = min_document_frequency
         self.num_classes = num_classes
         self.split_ratio = split_ratio
+        self.results_path = results_path
 
         self.train_dict = None
         self.val_dict = None
@@ -71,6 +72,15 @@ class Preprocessor:
             self.train_dict[llm] = train_data
             self.val_dict[llm] = val_data
             self.test_dict[llm] = test_data
+
+        with open(f'{self.results_path}/train_dict.pickle', 'wb') as handle:
+            pickle.dump(self.train_dict, handle, protocol=pickle.HIGHEST_PROTOCOL)
+
+        with open(f'{self.results_path}/val_dict.pickle', 'wb') as handle:
+            pickle.dump(self.val_dict, handle, protocol=pickle.HIGHEST_PROTOCOL)
+
+        with open(f'{self.results_path}/test_dict.pickle', 'wb') as handle:
+            pickle.dump(self.test_dict, handle, protocol=pickle.HIGHEST_PROTOCOL)
 
     # Authored by Google, revised by Matteo G Mecattaf
     def _vectorise_prompts(self, train_dict, val_dict, test_dict):
@@ -132,17 +142,17 @@ class Preprocessor:
             self.x_test_dict[llm] = x_test
             self.ngrams_dict[llm] = n_grams
 
-            with open('results/x_train_dict.pickle', 'wb') as handle:
-                pickle.dump(self.x_train_dict, handle, protocol=pickle.HIGHEST_PROTOCOL)
+        with open(f'{self.results_path}/x_train_dict.pickle', 'wb') as handle:
+            pickle.dump(self.x_train_dict, handle, protocol=pickle.HIGHEST_PROTOCOL)
 
-            with open('results/x_val_dict.pickle', 'wb') as handle:
-                pickle.dump(self.x_val_dict, handle, protocol=pickle.HIGHEST_PROTOCOL)
+        with open(f'{self.results_path}/x_val_dict.pickle', 'wb') as handle:
+            pickle.dump(self.x_val_dict, handle, protocol=pickle.HIGHEST_PROTOCOL)
 
-            with open('results/x_test_dict.pickle', 'wb') as handle:
-                pickle.dump(self.x_test_dict, handle, protocol=pickle.HIGHEST_PROTOCOL)
+        with open(f'{self.results_path}/x_test_dict.pickle', 'wb') as handle:
+            pickle.dump(self.x_test_dict, handle, protocol=pickle.HIGHEST_PROTOCOL)
 
-            with open('results/ngrams_dict.pickle', 'wb') as handle:
-                pickle.dump(self.ngrams_dict, handle, protocol=pickle.HIGHEST_PROTOCOL)
+        with open(f'{self.results_path}/ngrams_dict.pickle', 'wb') as handle:
+            pickle.dump(self.ngrams_dict, handle, protocol=pickle.HIGHEST_PROTOCOL)
 
 
 if __name__ == "__main__":
@@ -155,6 +165,7 @@ if __name__ == "__main__":
         "min_document_frequency": 2,
         "num_classes": 2,
         "split_ratio": 0.2,
+        "results_path": "results",
     }
 
     preprocessor = Preprocessor(**kwargs)
