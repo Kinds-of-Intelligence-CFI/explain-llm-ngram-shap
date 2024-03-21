@@ -41,11 +41,9 @@ def main(path_to_config):
                       **PARAMS["training"],
                       **PARAMS["general"], )
 
-    # return results_path
-
     # Explain the MLPs by producing shap value plots
     explainer = Explainer(results_path=results_path,
-                          llms=PARAMS["general"]["llms"],)
+                          llms=PARAMS["general"]["llms"], )
 
     explainer.produce_shap_plots(**PARAMS["explaining"])
 
