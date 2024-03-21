@@ -14,11 +14,19 @@ from sklearn.feature_selection import f_classif
 
 
 class Preprocessor:
-    def __init__(self, llms, path_to_dataset_outputs, ngram_range, top_k_ngrams, token_mode, min_document_frequency,
-                 num_classes, split_ratio=0.2, results_path="results"):
+    def __init__(self,
+                 llms,
+                 dataset_path,
+                 ngram_range,
+                 top_k_ngrams,
+                 token_mode,
+                 min_document_frequency,
+                 num_classes,
+                 results_path="results",
+                 split_ratio=0.2,):
         self.llms = llms
-        self.path_to_results = path_to_dataset_outputs
-        self.ngram_range = ngram_range
+        self.path_to_results = dataset_path
+        self.ngram_range = tuple(ngram_range)
         self.top_k_ngrams = top_k_ngrams
         self.token_mode = token_mode
         self.min_document_frequency = min_document_frequency
@@ -46,7 +54,7 @@ class Preprocessor:
         self._vectorise_prompts(self.train_dict, self.val_dict, self.test_dict)
 
     # Authored by Marko Tesic, revised by Matteo G Mecattaf
-    def _load_dataset_results(self, ):
+    def _load_dataset_results(self,):
         results_dict = {}
         for llm in self.llms:
             results_dict[llm] = pd.read_csv(f"{self.path_to_results}/{llm}.csv")
@@ -90,7 +98,7 @@ class Preprocessor:
         self.x_test_dict = {}
         self.ngrams_dict = {}
 
-        for llm in tqdm(self.llms):
+        for llm in self.llms:
             train_texts = train_dict[llm]['prompt']
             val_texts = val_dict[llm]['prompt']
             test_texts = test_dict[llm]['prompt']
@@ -158,14 +166,14 @@ class Preprocessor:
 if __name__ == "__main__":
     kwargs = {
         "llms": ["gpt3.04", "gpt3.5", "gpt3.041", "gpt3.042", "gpt3.043", "gpt4_1106_cot", "gpt4_1106", "llama007"],
-        "path_to_dataset_outputs": "datasets/cladder/outputs",
+        "dataset_path": "datasets/cladder/outputs",
         "ngram_range": (1, 2),
         "top_k_ngrams": 20_000,
         "token_mode": "word",
         "min_document_frequency": 2,
         "num_classes": 2,
         "split_ratio": 0.2,
-        "results_path": "results",
+        "results_path": "results/dummy",
     }
 
     preprocessor = Preprocessor(**kwargs)
