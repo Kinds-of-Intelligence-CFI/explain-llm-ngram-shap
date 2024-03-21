@@ -1,0 +1,32 @@
+general:
+  llms: [gpt3.04, gpt3.5, gpt3.041, gpt3.042, gpt3.043, gpt4_1106_cot, gpt4_1106, llama007]
+  num_classes: 2
+  results_path: results # Root folder to save the trained ngram-MLPs to within which the timestamped folder will live
+
+preprocessing:
+  dataset_path: datasets/cladder/outputs
+  ngram_range: [1, 2]
+  top_k_ngrams: 20000
+  token_mode: word
+  min_document_frequency: 2
+  split_ratio: 0.2
+
+training:
+  learning_rate: 3.e-4
+  epochs: 100
+  batch_size: 128
+  layers: 2
+  units: 64
+  dropout_rate: 0.2
+
+explaining:
+  strats: [rung, sensical]
+  plot_type: violin
+  num_background_points: 100
+  seed: 10
+  max_ngram_display: 20
+
+
+# TODO: could add a "setup" section which has {preprocess: False, train: False, explain: True} OR could
+#  separate the main function into load_and_train and explain so that you can do many explains for a single load
+#  and train
