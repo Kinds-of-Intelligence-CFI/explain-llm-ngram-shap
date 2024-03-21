@@ -24,7 +24,7 @@ def _get_last_layer_units_and_activation(num_classes):
 
 
 # # Authored by Google (or MT TODO: check)
-def mlp_model(layers, units, dropout_rate, input_shape, num_classes):
+def _create_mlp_model(layers, units, dropout_rate, input_shape, num_classes):
     """Creates an instance of a multi-layer perceptron model.
 
     # Arguments
@@ -90,18 +90,18 @@ def train_ngram_model(llms,
         val_labels = val_labels_dict[llm]
 
         # Create model instance.
-        model = mlp_model(layers=layers,
-                          units=units,
-                          dropout_rate=dropout_rate,
-                          input_shape=x_train.shape[1:],
-                          num_classes=num_classes)
+        model = _create_mlp_model(layers=layers,
+                                  units=units,
+                                  dropout_rate=dropout_rate,
+                                  input_shape=x_train.shape[1:],
+                                  num_classes=num_classes)
 
         # Compile model with learning parameters.
         if num_classes == 2:
             loss = 'binary_crossentropy'
         else:
             loss = 'sparse_categorical_crossentropy'
-        optimizer = tf.keras.optimizers.Adam(learning_rate=learning_rate)
+        optimizer = tf.keras.optimizers.legacy.Adam(learning_rate=learning_rate) # Use legacy if you are on M1/M2 mac
         model.compile(optimizer=optimizer, loss=loss, metrics=['acc'])
 
         # Create callback for early stopping on validation loss. If the loss does
@@ -126,8 +126,7 @@ def train_ngram_model(llms,
         #        acc=history['acc'][-1], loss=history['loss'][-1])) #val_acc, val_loss
 
         # Save model.
-        model.save(f'{results_path}/{llm}_model.h5')  # Eventually pass a name to this function so that it saves one
-        # model per LLM
+        model.save(f'{results_path}/{llm}/model.h5')
         y_pred = model.predict(x_test).ravel()
 
         # Add the llm-specific arrays to the return dicts
@@ -150,6 +149,7 @@ if __name__ == "__main__":
         "min_document_frequency": 2,
         "num_classes": 2,
         "split_ratio": 0.2,
+        "results_path": "results",
     }
     preprocessor = Preprocessor(**kwargs_preprocessor)
     preprocessor.preprocess_dataset()
