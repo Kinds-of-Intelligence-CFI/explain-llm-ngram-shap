@@ -15,13 +15,108 @@ class Explainer:
     results_path: str
     llms: list[str]
 
-    def produce_shap_plots(self, 
-                           strats,
-                           plot_type, 
-                           num_background_points=100,
-                           seed=0,
-                           max_ngram_display=10,
-                           show=False):
+    def produce_unstratified_shap_plots(self,
+                                        plot_type,
+                                        num_background_points=100,
+                                        seed=0,
+                                        max_ngram_display=10,
+                                        show=False):
+
+        with open(f'{self.results_path}/x_train_dict.pickle', 'rb') as handle:
+            x_train_dict = pickle.load(handle)
+
+        with open(f'{self.results_path}/x_val_dict.pickle', 'rb') as handle:
+            x_val_dict = pickle.load(handle)
+
+        with open(f'{self.results_path}/x_test_dict.pickle', 'rb') as handle:
+            x_test_dict = pickle.load(handle)
+
+        with open(f'{self.results_path}/ngrams_dict.pickle', 'rb') as handle:
+            ngrams_dict = pickle.load(handle)
+
+        with open(f'{self.results_path}/train_dict.pickle', 'rb') as handle:
+            train_dict = pickle.load(handle)
+
+        with open(f'{self.results_path}/val_dict.pickle', 'rb') as handle:
+            val_dict = pickle.load(handle)
+
+        with open(f'{self.results_path}/test_dict.pickle', 'rb') as handle:
+            test_dict = pickle.load(handle)
+
+        num_cols = 4
+        num_rows = 2
+
+        # Initialise a figure env (cannot use fig because shap lib does not return axes; instead does the
+        # plotting)
+        plt.figure(figsize=(num_cols * 5, num_rows * 5))
+
+        for ix, llm in enumerate(self.llms):
+            print(llm)
+
+            # Load the model
+            model = load_model(f"{self.results_path}/{llm}/model.h5")
+
+            # Extract the llm-specific data
+            x_train = x_train_dict[llm]
+            x_test = x_test_dict[llm]
+            ngrams = ngrams_dict[llm]
+
+            np.random.seed(seed)
+            num_rand_idx = num_background_points
+            random_indices = np.random.choice(x_train.shape[0], size=num_rand_idx, replace=False)
+            random_training_samples = x_train[random_indices, :]
+
+            shap_explainer = shap.DeepExplainer(model, data=random_training_samples)
+            shap_values = shap_explainer.shap_values(x_test)
+            base_value = float(shap_explainer.expected_value[0])
+            explanation = shap.Explanation(values=shap_values[:, :, 0],
+                                           base_values=[base_value] * len(shap_values),
+                                           # See notion/the_various_shap_plots
+                                           data=x_test,
+                                           feature_names=ngrams)
+
+            plt.subplot(num_rows, num_cols, ix + 1)
+
+            # SUMMARY PLOT
+            if plot_type == "summary":
+                shap.summary_plot(shap_values[:, :, 0],
+                                  x_test,
+                                  feature_names=ngrams,
+                                  plot_type="bar",
+                                  show=False,
+                                  plot_size=None,  # To be able to plot the subplots next to one another
+                                  )
+
+            # VIOLIN PLOT
+            if plot_type == "violin":
+                shap.plots.violin(explanation,
+                                  plot_size=None,
+                                  max_display=max_ngram_display,
+                                  show=False,
+                                  )
+
+            plt.title(f"{llm}")
+        plt.tight_layout()
+
+        try:
+            plot_dir = f"{self.results_path}/general"
+            os.mkdir(plot_dir)
+        except OSError as e:
+            if e.errno != errno.EEXIST:
+                raise
+
+        plt.savefig(fname=f"{plot_dir}/{plot_type}.png")
+
+        if show:
+            plt.show()
+
+    def produce_stratified_shap_plots(self,
+                                      strats,
+                                      plot_type,
+                                      num_background_points=100,
+                                      seed=0,
+                                      max_ngram_display=10,
+                                      show=False):
         with open(f'{self.results_path}/x_train_dict.pickle', 'rb') as handle:
             x_train_dict = pickle.load(handle)
 
@@ -121,17 +216,29 @@ class Explainer:
 
 if __name__ == "__main__":
     results_path = "results/dummy"
-    llms = ["gpt3.04",]
+    llms = ["gpt3.04",
+            "gpt3.5",
+            "gpt3.041",
+            "gpt3.042",
+            "gpt3.043",
+            "gpt4_1106_cot",
+            "gpt4_1106",
+            "llama007"]
     strats = ["rung"]
     plot_type = "violin"
 
     explainer = Explainer(results_path=results_path,
                           llms=llms, )
+    #
+    # explainer.produce_stratified_shap_plots(strats=strats,
+    #                                         plot_type=plot_type,
+    #                                         num_background_points=200,
+    #                                         seed=10,
+    #                                         max_ngram_display=20)
 
-    explainer.produce_shap_plots(strats=strats,
-                                 plot_type=plot_type,
-                                 num_background_points=200,
-                                 seed=10,
-                                 max_ngram_display=20)
+    explainer.produce_unstratified_shap_plots(plot_type=plot_type,
+                                              num_background_points=200,
+                                              seed=10,
+                                              max_ngram_display=20,)
 
     print("Exit ok")
