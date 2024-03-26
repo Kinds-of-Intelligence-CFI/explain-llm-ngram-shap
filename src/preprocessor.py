@@ -76,7 +76,7 @@ class Preprocessor:
 
         for llm, df in results_dict.items():
             train_data, temp_data = train_test_split(df, test_size=test_size, random_state=42)
-            val_data, test_data = train_test_split(df, test_size=test_size, random_state=42)
+            val_data, test_data = train_test_split(temp_data, test_size=0.5, random_state=42)
             self.train_dict[llm] = train_data
             self.val_dict[llm] = val_data
             self.test_dict[llm] = test_data
