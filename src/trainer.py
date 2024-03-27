@@ -1,7 +1,25 @@
+import pickle
+
+import numpy as np
+import pandas as pd
 import tensorflow as tf
 from tensorflow.keras import models
 from tensorflow.keras.layers import Dense
 from tensorflow.keras.layers import Dropout
+import matplotlib.pyplot as plt
+import seaborn as sns
+from sklearn.metrics import (
+    brier_score_loss,
+    f1_score,
+    log_loss,
+    precision_score,
+    recall_score,
+    roc_auc_score,
+)
+from sklearn.calibration import calibration_curve
+
+from src.utils.utils import brier_decomposition
+from src.utils.utils import try_mkdir
 
 
 # Authored by Google (or MT TODO: check)
@@ -101,7 +119,8 @@ def train_ngram_model(llms,
             loss = 'binary_crossentropy'
         else:
             loss = 'sparse_categorical_crossentropy'
-        optimizer = tf.keras.optimizers.legacy.Adam(learning_rate=learning_rate) # Use legacy if you are on M1/M2 mac
+        optimizer = tf.keras.optimizers.legacy.Adam(
+            learning_rate=learning_rate)  # Use legacy.Adam if you are on M1/M2 mac
         model.compile(optimizer=optimizer, loss=loss, metrics=['acc'])
 
         # Create callback for early stopping on validation loss. If the loss does
@@ -133,13 +152,216 @@ def train_ngram_model(llms,
         history_acc_dict[llm] = history['acc']
         history_val_acc_dict[llm] = history['val_acc']
         y_pred_dict[llm] = y_pred
+    #
+    # with open(f'{results_path}/history_acc_dict.pickle', 'wb') as handle:
+    #     pickle.dump(history_acc_dict, handle, protocol=pickle.HIGHEST_PROTOCOL)
+    #
+    # with open(f'{results_path}/history_val_acc_dict.pickle', 'wb') as handle:
+    #     pickle.dump(history_val_acc_dict, handle, protocol=pickle.HIGHEST_PROTOCOL)
+    #
+    # with open(f'{results_path}/y_pred_dict.pickle', 'wb') as handle:
+    #     pickle.dump(y_pred_dict, handle, protocol=pickle.HIGHEST_PROTOCOL)
 
     return history_acc_dict, history_val_acc_dict, y_pred_dict
+
+
+def produce_all_training_plots(llms, test_dict, history_acc_dict, history_val_acc_dict, y_pred_dict, results_path):
+    plot_root_path = f"{results_path}/training_plots"
+    try_mkdir(plot_root_path)
+
+    predictive_methods_df_in = pd.DataFrame()
+    probabilities = {}
+    probabilities_e = {}
+    training_output = {}
+    llm_to_idx_to_ngram = {}
+    epsilon = 0.0001
+
+    for llm in llms:
+        print(llm)
+        method_name = 'n_gram'
+        acc, val_acc, y_pred = history_acc_dict[llm], history_val_acc_dict[llm], y_pred_dict[llm]
+        y_pred_e = y_pred + epsilon
+        probabilities[llm] = y_pred
+        probabilities_e[llm] = y_pred_e
+        training_output[llm] = pd.DataFrame({'training_accuracy': acc, 'validation_accuracy': val_acc})
+        BrierScore, Calibration, Refinement = brier_decomposition(y_pred, test_dict[llm]['success'])
+        BrierScore_e, Calibration_e, Refinement_e = brier_decomposition(y_pred_e, test_dict[llm]['success'])
+        # compute the ROC AUC using sklearn
+        roc_auc = roc_auc_score(test_dict[llm]['success'], y_pred)
+        roc_auc_e = roc_auc_score(test_dict[llm]['success'], y_pred_e)
+        predictive_methods_df_in = pd.concat([predictive_methods_df_in, pd.DataFrame(
+            {"predictive_method": method_name, "llm": llm, "BrierScore": BrierScore,
+             "Calibration": Calibration, "Refinement": Refinement, "AUROC": roc_auc,
+             "BrierScore_e": BrierScore_e, "Calibration_e": Calibration_e, "Refinement_e": Refinement_e,
+             "AUROC_e": roc_auc_e},  # "trained_method": trained_method
+            index=[0])])
+
+        print(predictive_methods_df_in)
+
+    # Determine the layout of the subplots
+    n_llms = len(llms)
+    ncols = 4
+    nrows = n_llms // ncols + (n_llms % ncols > 0)
+
+    plt.figure(figsize=(ncols * 10, nrows * 8))
+
+    for index, llm in enumerate(training_output):
+        ax = plt.subplot(nrows, ncols, index + 1)
+
+        # Create a DataFrame for the current llm
+        df_loss = pd.DataFrame({
+            'Epoch': range(len(training_output[llm]['training_accuracy'])),
+            'Training accuracy': training_output[llm]['training_accuracy'],
+            'Validation accuracy': training_output[llm]['validation_accuracy']
+        })
+
+        # Melt the DataFrame to have appropriate format for seaborn lineplot
+        df_loss_melted = df_loss.melt(id_vars=['Epoch'], var_name='Type', value_name='Accuracy')
+
+        # Plot the training and validation loss
+        sns.lineplot(data=df_loss_melted, x='Epoch', y='Accuracy', hue='Type', marker='o', ax=ax)
+
+        ax.set_title(f'Accuracy for {llm}')
+        ax.set_xlabel('Epoch')
+        ax.set_ylabel('Accuracy')
+        plt.legend()
+
+    plt.tight_layout()
+    plt.savefig(f"{plot_root_path}/accuracy_training_curves.png")
+
+    predictive_methods_df_in[
+        ['predictive_method', 'llm', 'AUROC', 'BrierScore', 'Calibration', 'Refinement']].sort_values(
+        by="BrierScore")
+
+    res = pd.DataFrame()
+    for llm in llms:
+        print(llm)
+        method_name = 'n_gram'
+        BrierScore, Calibration, Refinement = brier_decomposition(probabilities[llm], test_dict[llm]['success'])
+        # BrierScore_e, Calibration_e, Refinement_e = brierDecomp(probabilities[llm], test_dict[llm]['success'])
+        roc_auc = roc_auc_score(test_dict[llm]['success'], probabilities[llm])
+        # brier_score_loss_sklearn = brier_score_loss(test_dict[llm]['success'], probabilities[llm])
+        prec = precision_score(test_dict[llm]['success'], [1 if p > 0.5 else 0 for p in probabilities[llm]])
+        recall = recall_score(test_dict[llm]['success'], [1 if p > 0.5 else 0 for p in probabilities[llm]])
+        f1 = f1_score(test_dict[llm]['success'], [1 if p > 0.5 else 0 for p in probabilities[llm]])
+        # compute accuracy by thresholding at 0.5
+        y_pred_binary = probabilities[llm] > 0.5
+        accuracy = np.mean(y_pred_binary == test_dict[llm]['success'])
+        res = pd.concat([res, pd.DataFrame(
+            {"predictive_method": method_name, "llm": llm, "BrierScore": BrierScore,
+             "Calibration": Calibration, "Refinement": Refinement, "AUROC": roc_auc,
+             'precision': prec, 'recall': recall, 'f1 score': f1, 'accuracy': accuracy},
+            index=[0])])
+
+    res.sort_values(by="BrierScore")
+
+    print(res['llm'])
+
+    # Plot histogram of the prediction probabilities for each llm
+    # Determine the layout of the subplots
+    n_llms = len(llms)
+    ncols = 4
+    nrows = n_llms // ncols + (n_llms % ncols > 0)
+
+    plt.figure(figsize=(ncols * 10, nrows * 8))
+
+    for index, llm in enumerate(llms):
+        plt.subplot(nrows, ncols, index + 1)
+
+        sns.histplot(probabilities[llm], bins=10, kde=False)
+        plt.title(f"Prediction probabilities for {llm}")
+        plt.xlim(0, 1)
+        acc = res['accuracy'][res['llm'] == llm]
+        # print(acc[0])
+        plt.axvline(x=acc[0], color='r', linewidth=3, linestyle='--', label='accuracy')
+        plt.axvline(x=probabilities[llm].mean(), color='g', linewidth=3, linestyle='-', label='average confidence')
+        plt.legend()
+
+    plt.tight_layout()
+    plt.savefig(f"{plot_root_path}/histogram_prediction_probabilities.png")
+
+    plt.figure(figsize=(12, 8))
+    n_bins = 10
+
+    # Plot calibration curves for all models on the same axes
+    for llm in llms:
+        prob_true, prob_pred = calibration_curve(test_dict[llm]['success'], probabilities[llm], n_bins=n_bins,
+                                                 strategy='uniform')
+        sns.lineplot(x=prob_pred, y=prob_true, marker='o', label=f'{llm}')
+
+    # Adding the reference line for perfect calibration
+    plt.plot([0, 1], [0, 1], linestyle='--', color='gray')
+    plt.title("Calibration Curves for Different Models")
+    plt.xlabel('Mean Predicted Probability')
+    plt.ylabel('Fraction of Positives')
+    plt.legend(title='Model')
+    plt.savefig(f"{plot_root_path}/calibration_curves.png")
+
+    # Plot the reliability diagrams
+    M = 10
+    n_llms = len(llms)
+    ncols = 4  # You can adjust the number of columns as needed
+    nrows = n_llms // ncols + (n_llms % ncols > 0)
+
+    plt.figure(figsize=(ncols * 10, nrows * 6))
+
+    for index, llm in enumerate(llms):
+        plt.subplot(nrows, ncols, index + 1)
+
+        df_temp = pd.DataFrame({
+            'predictions': probabilities[llm],
+            'true_label': test_dict[llm]['success']
+        })
+
+        bin_data = []
+
+        for m in range(1, M + 1):
+            bin = df_temp[(df_temp['predictions'] > (m - 1) / M) & (df_temp['predictions'] <= m / M)]
+            accuracy = (bin['true_label']).mean()
+            confidence = bin['predictions'].mean()
+            error = (len(bin) / len(df_temp)) * (abs(accuracy - confidence))
+            # print(len(bin),len(df_temp))
+
+            bin_data.append({'confidence': confidence, 'accuracy': accuracy, 'error': error})
+
+        # Convert to DataFrame for Seaborn
+        bin_df = pd.DataFrame(bin_data)
+        sum_error = bin_df['error'].sum()
+        sns.lineplot(x='confidence', y='accuracy', data=bin_df, marker='o', label=f'{llm}')
+        plt.plot([0, 1], [0, 1], linestyle='--', color='gray')
+        plt.title(f"Reliability Diagram for {llm}")
+        plt.xlabel('Mean Confidence')
+        plt.ylabel('Accuracy')
+
+        plt.annotate(f'Expected Callibration Error = {sum_error:.2f}', xy=(0.5, 0.1), xycoords='axes fraction',
+                     ha='center', va='bottom', color='red')
+
+    plt.tight_layout()
+    plt.savefig(f"{plot_root_path}/reliability_diagrams.png")
+
+    # Plot prediction probability histogram distribution when there is an epsilon offset
+    # Determine the layout of the subplots
+    n_llms = len(llms)
+    ncols = 4
+    nrows = n_llms // ncols + (n_llms % ncols > 0)
+
+    plt.figure(figsize=(ncols * 10, nrows * 8))
+
+    for index, llm in enumerate(llms):
+        plt.subplot(nrows, ncols, index + 1)
+
+        sns.histplot(probabilities_e[llm], bins=10, kde=False)
+        plt.title(f"Prediction probabilities for {llm} with epsilon offset")
+        plt.xlim(0, 1)
+
+    plt.tight_layout()
+    plt.savefig(f"{plot_root_path}/histogram_prediction_probability_epsilon_offset.png")
 
 
 if __name__ == "__main__":
     # Preprocess the data
     from preprocessor import Preprocessor
+
     kwargs_preprocessor = {
         "llms": ["gpt3.04", "gpt3.5", "gpt3.041", "gpt3.042", "gpt3.043", "gpt4_1106_cot", "gpt4_1106", "llama007"],
         "path_to_dataset_outputs": "datasets/cladder/outputs",
