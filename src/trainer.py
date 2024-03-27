@@ -9,14 +9,7 @@ from tensorflow.keras.layers import Dense
 from tensorflow.keras.layers import Dropout
 import matplotlib.pyplot as plt
 import seaborn as sns
-from sklearn.metrics import (
-    brier_score_loss,
-    f1_score,
-    log_loss,
-    precision_score,
-    recall_score,
-    roc_auc_score,
-)
+from sklearn.metrics import brier_score_loss, f1_score, log_loss, precision_score, recall_score, roc_auc_score
 from sklearn.calibration import calibration_curve
 
 from src.utils.utils import brier_decomposition
@@ -351,7 +344,7 @@ class Trainer:
         plt.savefig(f"{plot_root_path}/histogram_prediction_probability_epsilon_offset.png")
 
 
-if __name__ == "__main__":
+def check_trainer_example():
     # Preprocess the data
     from preprocessor import Preprocessor
 
@@ -388,3 +381,7 @@ if __name__ == "__main__":
     trainer.train_ngram_model(**kwargs_train_method)
 
     print("Exit ok")
+
+
+if __name__ == "__main__":
+    check_trainer_example()

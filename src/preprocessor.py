@@ -23,7 +23,7 @@ class Preprocessor:
                  min_document_frequency,
                  num_classes,
                  results_path="results",
-                 split_ratio=0.2,):
+                 split_ratio=0.2, ):
         self.llms = llms
         self.path_to_results = dataset_path
         self.ngram_range = tuple(ngram_range)
@@ -54,7 +54,7 @@ class Preprocessor:
         self._vectorise_prompts(self.train_dict, self.val_dict, self.test_dict)
 
     # Authored by Marko Tesic, revised by Matteo G Mecattaf
-    def _load_dataset_results(self,):
+    def _load_dataset_results(self, ):
         results_dict = {}
         for llm in self.llms:
             results_dict[llm] = pd.read_csv(f"{self.path_to_results}/{llm}.csv")
@@ -163,7 +163,7 @@ class Preprocessor:
             pickle.dump(self.ngrams_dict, handle, protocol=pickle.HIGHEST_PROTOCOL)
 
 
-if __name__ == "__main__":
+def check_preprocessor_example():
     kwargs = {
         "llms": ["gpt3.04", "gpt3.5", "gpt3.041", "gpt3.042", "gpt3.043", "gpt4_1106_cot", "gpt4_1106", "llama007"],
         "dataset_path": "datasets/cladder/outputs",
@@ -180,3 +180,7 @@ if __name__ == "__main__":
     preprocessor.preprocess_dataset()
 
     print("Exit ok")
+
+
+if __name__ == "__main__":
+    check_preprocessor_example()

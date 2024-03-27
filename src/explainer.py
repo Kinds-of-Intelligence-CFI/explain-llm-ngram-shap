@@ -214,7 +214,7 @@ class Explainer:
                     plt.show()
 
 
-if __name__ == "__main__":
+def check_explainer_example():
     results_path = "results/dummy"
     llms = ["gpt3.04",
             "gpt3.5",
@@ -239,6 +239,10 @@ if __name__ == "__main__":
     explainer.produce_unstratified_shap_plots(plot_type=plot_type,
                                               num_background_points=200,
                                               seed=10,
-                                              max_ngram_display=20,)
+                                              max_ngram_display=20, )
 
     print("Exit ok")
+
+
+if __name__ == "__main__":
+    check_explainer_example()
