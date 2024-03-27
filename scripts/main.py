@@ -4,7 +4,7 @@ from datetime import datetime
 import yaml
 
 from src.preprocessor import Preprocessor
-from src.trainer import train_ngram_model
+from src.trainer import Trainer
 from src.explainer import Explainer
 
 
@@ -33,19 +33,23 @@ def main(path_to_config):
     preprocessor.preprocess_dataset()
 
     # Train the MLPs
-    train_ngram_model(x_train_dict=preprocessor.x_train_dict,
-                      x_val_dict=preprocessor.x_val_dict,
-                      x_test_dict=preprocessor.x_test_dict,
-                      train_labels_dict=preprocessor.train_labels_dict,
-                      val_labels_dict=preprocessor.val_labels_dict,
-                      **PARAMS["training"],
-                      **PARAMS["general"], )
+    trainer = Trainer(**PARAMS["general"], **PARAMS["training"])
+    train_acc_dict, val_acc_dict, y_pred_dict = trainer.train_ngram_model(x_train_dict=preprocessor.x_train_dict,
+                                                                          x_val_dict=preprocessor.x_val_dict,
+                                                                          x_test_dict=preprocessor.x_test_dict,
+                                                                          train_labels_dict=preprocessor.train_labels_dict,
+                                                                          val_labels_dict=preprocessor.val_labels_dict, )
 
-    # Explain the MLPs by producing shap value plots
-    explainer = Explainer(results_path=results_path,
-                          llms=PARAMS["general"]["llms"], )
+    trainer.produce_all_training_plots(test_dict=preprocessor.test_dict,
+                                       history_acc_dict=train_acc_dict,
+                                       history_val_acc_dict=val_acc_dict,
+                                       y_pred_dict=y_pred_dict, )
 
-    explainer.produce_shap_plots(**PARAMS["explaining"])
+    # # Explain the MLPs by producing shap value plots
+    # explainer = Explainer(results_path=results_path,
+    #                       llms=PARAMS["general"]["llms"], )
+    #
+    # explainer.produce_stratified_shap_plots(**PARAMS["explaining"])
 
 
 if __name__ == "__main__":
