@@ -45,53 +45,12 @@ class Trainer:
         self.dropout_rate = dropout_rate
 
     # Authored by Google (or MT TODO: check)
-    def _get_last_layer_units_and_activation(self, ):
-        """Gets the # units and activation function for the last network layer.
-
-        # Arguments
-            num_classes: int, number of classes.
-
-        # Returns
-            units, activation values.
-        """
-        if self.num_classes == 2:
-            activation = 'sigmoid'
-            units = 1
-        else:
-            activation = 'softmax'
-            units = self.num_classes
-        return units, activation
-
-    # # Authored by Google (or MT TODO: check)
-    def _create_mlp_model(self, layers, units, dropout_rate, input_shape, num_classes):
-        """Creates an instance of a multi-layer perceptron model.
-
-        # Arguments
-            layers: int, number of `Dense` layers in the model.
-            units: int, output dimension of the layers.
-            dropout_rate: float, percentage of input to drop at Dropout layers.
-            input_shape: tuple, shape of input to the model.
-            num_classes: int, number of output classes.
-
-        # Returns
-            An MLP model instance.
-        """
-        op_units, op_activation = self._get_last_layer_units_and_activation()
-        model = models.Sequential()
-        model.add(Dropout(rate=dropout_rate, input_shape=input_shape))
-        for _ in range(layers - 1):
-            model.add(Dense(units=units, activation='relu'))
-            model.add(Dropout(rate=dropout_rate))
-        model.add(Dense(units=op_units, activation=op_activation))
-        return model
-
-    # Authored by Google (or MT TODO: check)
     def train_ngram_model(self,
                           x_train_dict,
                           x_val_dict,
                           x_test_dict,
                           train_labels_dict,
-                          val_labels_dict,):
+                          val_labels_dict, ):
         """Trains n-gram model on the given dataset.
 
         # Arguments
@@ -164,15 +123,6 @@ class Trainer:
             history_acc_dict[llm] = history['acc']
             history_val_acc_dict[llm] = history['val_acc']
             y_pred_dict[llm] = y_pred
-        #
-        # with open(f'{results_path}/history_acc_dict.pickle', 'wb') as handle:
-        #     pickle.dump(history_acc_dict, handle, protocol=pickle.HIGHEST_PROTOCOL)
-        #
-        # with open(f'{results_path}/history_val_acc_dict.pickle', 'wb') as handle:
-        #     pickle.dump(history_val_acc_dict, handle, protocol=pickle.HIGHEST_PROTOCOL)
-        #
-        # with open(f'{results_path}/y_pred_dict.pickle', 'wb') as handle:
-        #     pickle.dump(y_pred_dict, handle, protocol=pickle.HIGHEST_PROTOCOL)
 
         return history_acc_dict, history_val_acc_dict, y_pred_dict
 
@@ -180,39 +130,91 @@ class Trainer:
                                    test_dict,
                                    history_acc_dict,
                                    history_val_acc_dict,
-                                   y_pred_dict,):
+                                   y_pred_dict, ):
+        # Create the root directory for the plots
         plot_root_path = f"{self.results_path}/training_plots"
         try_mkdir(plot_root_path)
 
-        predictive_methods_df_in = pd.DataFrame()
+        res = pd.DataFrame()
         probabilities = {}
         probabilities_e = {}
         training_output = {}
-        llm_to_idx_to_ngram = {}
         epsilon = 0.0001
 
+        # Calculate all the summary statistics
         for llm in self.llms:
             print(llm)
-            method_name = 'n_gram'
             acc, val_acc, y_pred = history_acc_dict[llm], history_val_acc_dict[llm], y_pred_dict[llm]
             y_pred_e = y_pred + epsilon
             probabilities[llm] = y_pred
             probabilities_e[llm] = y_pred_e
             training_output[llm] = pd.DataFrame({'training_accuracy': acc, 'validation_accuracy': val_acc})
-            BrierScore, Calibration, Refinement = brier_decomposition(y_pred, test_dict[llm]['success'])
-            BrierScore_e, Calibration_e, Refinement_e = brier_decomposition(y_pred_e, test_dict[llm]['success'])
-            # compute the ROC AUC using sklearn
-            roc_auc = roc_auc_score(test_dict[llm]['success'], y_pred)
-            roc_auc_e = roc_auc_score(test_dict[llm]['success'], y_pred_e)
-            predictive_methods_df_in = pd.concat([predictive_methods_df_in, pd.DataFrame(
+            method_name = 'n_gram'
+            BrierScore, Calibration, Refinement = brier_decomposition(probabilities[llm], test_dict[llm]['success'])
+            # BrierScore_e, Calibration_e, Refinement_e = brierDecomp(probabilities[llm], test_dict[llm]['success'])
+            roc_auc = roc_auc_score(test_dict[llm]['success'], probabilities[llm])
+            # brier_score_loss_sklearn = brier_score_loss(test_dict[llm]['success'], probabilities[llm])
+            prec = precision_score(test_dict[llm]['success'], [1 if p > 0.5 else 0 for p in probabilities[llm]])
+            recall = recall_score(test_dict[llm]['success'], [1 if p > 0.5 else 0 for p in probabilities[llm]])
+            f1 = f1_score(test_dict[llm]['success'], [1 if p > 0.5 else 0 for p in probabilities[llm]])
+            # compute accuracy by thresholding at 0.5
+            y_pred_binary = probabilities[llm] > 0.5
+            accuracy = np.mean(y_pred_binary == test_dict[llm]['success'])
+            res = pd.concat([res, pd.DataFrame(
                 {"predictive_method": method_name, "llm": llm, "BrierScore": BrierScore,
                  "Calibration": Calibration, "Refinement": Refinement, "AUROC": roc_auc,
-                 "BrierScore_e": BrierScore_e, "Calibration_e": Calibration_e, "Refinement_e": Refinement_e,
-                 "AUROC_e": roc_auc_e},  # "trained_method": trained_method
+                 'precision': prec, 'recall': recall, 'f1 score': f1, 'accuracy': accuracy},
                 index=[0])])
 
-            print(predictive_methods_df_in)
+        res.sort_values(by="BrierScore")
 
+        self._plot_learning_curves(plot_root_path, training_output)
+        self._plot_histogram_of_prediction_probabilities(plot_root_path, probabilities, res)
+        self._plot_calibration_curves(plot_root_path, probabilities, test_dict)
+        self._plot_reliability_diagrams(plot_root_path, probabilities, test_dict)
+
+    # Authored by Google (or MT TODO: check)
+    def _get_last_layer_units_and_activation(self, ):
+        """Gets the # units and activation function for the last network layer.
+
+        # Arguments
+            num_classes: int, number of classes.
+
+        # Returns
+            units, activation values.
+        """
+        if self.num_classes == 2:
+            activation = 'sigmoid'
+            units = 1
+        else:
+            activation = 'softmax'
+            units = self.num_classes
+        return units, activation
+
+    # # Authored by Google (or MT TODO: check)
+    def _create_mlp_model(self, layers, units, dropout_rate, input_shape, num_classes):
+        """Creates an instance of a multi-layer perceptron model.
+
+        # Arguments
+            layers: int, number of `Dense` layers in the model.
+            units: int, output dimension of the layers.
+            dropout_rate: float, percentage of input to drop at Dropout layers.
+            input_shape: tuple, shape of input to the model.
+            num_classes: int, number of output classes.
+
+        # Returns
+            An MLP model instance.
+        """
+        op_units, op_activation = self._get_last_layer_units_and_activation()
+        model = models.Sequential()
+        model.add(Dropout(rate=dropout_rate, input_shape=input_shape))
+        for _ in range(layers - 1):
+            model.add(Dense(units=units, activation='relu'))
+            model.add(Dropout(rate=dropout_rate))
+        model.add(Dense(units=op_units, activation=op_activation))
+        return model
+
+    def _plot_learning_curves(self, plot_root_path, training_output):
         # Determine the layout of the subplots
         n_llms = len(self.llms)
         ncols = 4
@@ -242,36 +244,9 @@ class Trainer:
             plt.legend()
 
         plt.tight_layout()
-        plt.savefig(f"{plot_root_path}/accuracy_training_curves.png")
+        plt.savefig(f"{plot_root_path}/learning_curves.png")
 
-        predictive_methods_df_in[
-            ['predictive_method', 'llm', 'AUROC', 'BrierScore', 'Calibration', 'Refinement']].sort_values(
-            by="BrierScore")
-
-        res = pd.DataFrame()
-        for llm in self.llms:
-            print(llm)
-            method_name = 'n_gram'
-            BrierScore, Calibration, Refinement = brier_decomposition(probabilities[llm], test_dict[llm]['success'])
-            # BrierScore_e, Calibration_e, Refinement_e = brierDecomp(probabilities[llm], test_dict[llm]['success'])
-            roc_auc = roc_auc_score(test_dict[llm]['success'], probabilities[llm])
-            # brier_score_loss_sklearn = brier_score_loss(test_dict[llm]['success'], probabilities[llm])
-            prec = precision_score(test_dict[llm]['success'], [1 if p > 0.5 else 0 for p in probabilities[llm]])
-            recall = recall_score(test_dict[llm]['success'], [1 if p > 0.5 else 0 for p in probabilities[llm]])
-            f1 = f1_score(test_dict[llm]['success'], [1 if p > 0.5 else 0 for p in probabilities[llm]])
-            # compute accuracy by thresholding at 0.5
-            y_pred_binary = probabilities[llm] > 0.5
-            accuracy = np.mean(y_pred_binary == test_dict[llm]['success'])
-            res = pd.concat([res, pd.DataFrame(
-                {"predictive_method": method_name, "llm": llm, "BrierScore": BrierScore,
-                 "Calibration": Calibration, "Refinement": Refinement, "AUROC": roc_auc,
-                 'precision': prec, 'recall': recall, 'f1 score': f1, 'accuracy': accuracy},
-                index=[0])])
-
-        res.sort_values(by="BrierScore")
-
-        print(res['llm'])
-
+    def _plot_histogram_of_prediction_probabilities(self, plot_root_path, probabilities, res):
         # Plot histogram of the prediction probabilities for each llm
         # Determine the layout of the subplots
         n_llms = len(self.llms)
@@ -295,6 +270,7 @@ class Trainer:
         plt.tight_layout()
         plt.savefig(f"{plot_root_path}/histogram_prediction_probabilities.png")
 
+    def _plot_calibration_curves(self, plot_root_path, probabilities, test_dict):
         plt.figure(figsize=(12, 8))
         n_bins = 10
 
@@ -312,6 +288,7 @@ class Trainer:
         plt.legend(title='Model')
         plt.savefig(f"{plot_root_path}/calibration_curves.png")
 
+    def _plot_reliability_diagrams(self, plot_root_path, probabilities, test_dict):
         # Plot the reliability diagrams
         M = 10
         n_llms = len(self.llms)
@@ -354,6 +331,7 @@ class Trainer:
         plt.tight_layout()
         plt.savefig(f"{plot_root_path}/reliability_diagrams.png")
 
+    def _plot_histogram_of_prediction_probability_with_epsilon_offset(self, plot_root_path, probabilities_e):
         # Plot prediction probability histogram distribution when there is an epsilon offset
         # Determine the layout of the subplots
         n_llms = len(self.llms)
