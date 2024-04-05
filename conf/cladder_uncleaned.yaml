@@ -3,6 +3,11 @@ general:
   num_classes: 2
   results_path: results # Root folder to save the trained ngram-MLPs to within which the timestamped folder will live
 
+instructions:
+  do_preprocessing: 1
+  do_training: 1
+  do_explaining: 0
+
 preprocessing:
   dataset_path: datasets/cladder/outputs
   ngram_range: [1, 2]
@@ -25,8 +30,3 @@ explaining:
   num_background_points: 100
   seed: 10
   max_ngram_display: 20
-
-
-# TODO: could add a "setup" section which has {preprocess: False, train: False, explain: True} OR could
-#  separate the main function into load_and_train and explain so that you can do many explains for a single load
-#  and train
