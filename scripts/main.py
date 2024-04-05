@@ -28,29 +28,36 @@ def main(path_to_config):
     with open(f"{results_path}/config.yaml", "w") as file:
         yaml.safe_dump(PARAMS, file)
 
-    # Load and preprocess the dataset
-    preprocessor = Preprocessor(**PARAMS["general"], **PARAMS["preprocessing"])
-    preprocessor.preprocess_dataset()
+    instructions = PARAMS["instructions"]
 
-    # Train the MLPs
-    trainer = Trainer(**PARAMS["general"], **PARAMS["training"])
-    train_acc_dict, val_acc_dict, y_pred_dict = trainer.train_ngram_model(x_train_dict=preprocessor.x_train_dict,
-                                                                          x_val_dict=preprocessor.x_val_dict,
-                                                                          x_test_dict=preprocessor.x_test_dict,
-                                                                          train_labels_dict=preprocessor.train_labels_dict,
-                                                                          val_labels_dict=preprocessor.val_labels_dict, )
+    # TODO: So far, cannot do training without preprocessing (see training section below which relies on preprocessor
+    #  attributes. Must decide how to either decouple preprocessing and training or treat them as a single block
+    if instructions["do_preprocessing"]:
+        # Load and preprocess the dataset
+        preprocessor = Preprocessor(**PARAMS["general"], **PARAMS["preprocessing"])
+        preprocessor.preprocess_dataset()
 
-    trainer.produce_all_training_plots(test_dict=preprocessor.test_dict,
-                                       history_acc_dict=train_acc_dict,
-                                       history_val_acc_dict=val_acc_dict,
-                                       y_pred_dict=y_pred_dict, )
+    if instructions["do_training"]:
+        # Train the MLPs
+        trainer = Trainer(**PARAMS["general"], **PARAMS["training"])
+        train_acc_dict, val_acc_dict, y_pred_dict = trainer.train_ngram_model(x_train_dict=preprocessor.x_train_dict,
+                                                                              x_val_dict=preprocessor.x_val_dict,
+                                                                              x_test_dict=preprocessor.x_test_dict,
+                                                                              train_labels_dict=preprocessor.train_labels_dict,
+                                                                              val_labels_dict=preprocessor.val_labels_dict, )
 
-    # # Explain the MLPs by producing shap value plots
-    # explainer = Explainer(results_path=results_path,
-    #                       llms=PARAMS["general"]["llms"], )
-    #
-    # explainer.produce_stratified_shap_plots(**PARAMS["explaining"])
+        trainer.produce_all_training_plots(test_dict=preprocessor.test_dict,
+                                           history_acc_dict=train_acc_dict,
+                                           history_val_acc_dict=val_acc_dict,
+                                           y_pred_dict=y_pred_dict, )
+
+    if instructions["do_explaining"]:
+        # Explain the MLPs by producing shap value plots
+        explainer = Explainer(results_path=results_path,
+                              llms=PARAMS["general"]["llms"], )
+
+        explainer.produce_stratified_shap_plots(**PARAMS["explaining"])
 
 
 if __name__ == "__main__":
-    main(path_to_config="conf/config.yaml")
+    main(path_to_config="conf/cladder_uncleaned.yaml")
