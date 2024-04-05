@@ -17,10 +17,11 @@ class Explainer:
 
     def produce_unstratified_shap_plots(self,
                                         plot_type,
-                                        num_background_points=100,
+                                        num_background_points=200,
                                         seed=0,
                                         max_ngram_display=10,
-                                        show=False):
+                                        show=False,
+                                        test_slice=slice(None, None, None)):
 
         with open(f'{self.results_path}/x_train_dict.pickle', 'rb') as handle:
             x_train_dict = pickle.load(handle)
@@ -58,13 +59,15 @@ class Explainer:
 
             # Extract the llm-specific data
             x_train = x_train_dict[llm]
-            x_test = x_test_dict[llm]
+            x_test = x_test_dict[llm][test_slice]
             ngrams = ngrams_dict[llm]
 
             np.random.seed(seed)
             num_rand_idx = num_background_points
             random_indices = np.random.choice(x_train.shape[0], size=num_rand_idx, replace=False)
             random_training_samples = x_train[random_indices, :]
+
+            print()
 
             shap_explainer = shap.DeepExplainer(model, data=random_training_samples)
             shap_values = shap_explainer.shap_values(x_test)
@@ -77,7 +80,6 @@ class Explainer:
 
             plt.subplot(num_rows, num_cols, ix + 1)
 
-            # SUMMARY PLOT
             if plot_type == "summary":
                 shap.summary_plot(shap_values[:, :, 0],
                                   x_test,
@@ -87,13 +89,25 @@ class Explainer:
                                   plot_size=None,  # To be able to plot the subplots next to one another
                                   )
 
-            # VIOLIN PLOT
             if plot_type == "violin":
                 shap.plots.violin(explanation,
                                   plot_size=None,
                                   max_display=max_ngram_display,
                                   show=False,
                                   )
+
+            if plot_type == "beeswarm":
+                shap.plots.beeswarm(explanation,
+                                    plot_size=None,
+                                    max_display=max_ngram_display,
+                                    show=False)
+
+            if plot_type == "waterfall":
+                shap.plots.waterfall(explanation[0],
+                                     # plot_size=None,
+                                     # max_display=max_ngram_display,
+                                     show=False,
+                                     )
 
             plt.title(f"{llm}")
         plt.tight_layout()
@@ -213,33 +227,52 @@ class Explainer:
                 if show:
                     plt.show()
 
+    @staticmethod
+    def _analyse_tf_idf_value_distribution_in(arr: np.ndarray[np.ndarray],
+                                              ngrams: np.ndarray[float],
+                                              ngram: str,
+                                              ) -> None:
+        # Note: arr is an array of TF-IDF arrays. The TF-IDF arrays are of the same length as the ngrams array
+        ngram_tf_idf = arr[:, ngrams == ngram]
+        ngram_tf_idf = ngram_tf_idf[ngram_tf_idf != 0]
+
+        if ngram_tf_idf.size != 0:
+            print("max: ", max_val := max(ngram_tf_idf))
+            print("min: ", min_val := min(ngram_tf_idf))
+            print("range: ", max_val - min_val)
+
+            fig, ax = plt.subplots()
+            ax.hist(ngram_tf_idf, bins=20)
+            plt.show()
+        else:
+            print(f"TF-IDF component values for {ngram} are all 0 in explainer training set.")
+
 
 def check_explainer_example():
-    results_path = "results/dummy"
-    llms = ["gpt3.04",
-            "gpt3.5",
-            "gpt3.041",
-            "gpt3.042",
-            "gpt3.043",
-            "gpt4_1106_cot",
-            "gpt4_1106",
-            "llama007"]
-    strats = ["rung"]
+    results_path = "results/cladder_cleaned"
+    llms = ["gpt3.04", "gpt3.5", "gpt3.041", "gpt3.042", "gpt3.043", "gpt4_1106_cot", "gpt4_1106", "llama007"]
+
     plot_type = "violin"
+    num_background_points = 200
+    seed = 10
+    max_ngram_display = 20
 
-    explainer = Explainer(results_path=results_path,
-                          llms=llms, )
-    #
-    # explainer.produce_stratified_shap_plots(strats=strats,
-    #                                         plot_type=plot_type,
-    #                                         num_background_points=200,
-    #                                         seed=10,
-    #                                         max_ngram_display=20)
+    explainer = Explainer(results_path=results_path, llms=llms, )
 
-    explainer.produce_unstratified_shap_plots(plot_type=plot_type,
-                                              num_background_points=200,
-                                              seed=10,
-                                              max_ngram_display=20, )
+    # Stratified plots
+    strats = ["query_type", "sensical", "phenomenon",]  # "rung",]
+    explainer.produce_stratified_shap_plots(strats=strats,
+                                            plot_type=plot_type,
+                                            num_background_points=num_background_points,
+                                            seed=seed,
+                                            max_ngram_display=max_ngram_display)
+
+    # # General, unstratified plots
+    # explainer.produce_unstratified_shap_plots(plot_type=plot_type,
+    #                                           num_background_points=num_background_points,
+    #                                           seed=seed,
+    #                                           max_ngram_display=max_ngram_display,
+    #                                           )
 
     print("Exit ok")
 
