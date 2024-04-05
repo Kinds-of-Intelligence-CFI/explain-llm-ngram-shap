@@ -54,12 +54,20 @@ class Preprocessor:
         self._vectorise_prompts(self.train_dict, self.val_dict, self.test_dict)
 
     # Authored by Marko Tesic, revised by Matteo G Mecattaf
-    def _load_dataset_results(self, ):
-        results_dict = {}
-        for llm in self.llms:
-            results_dict[llm] = pd.read_csv(f"{self.path_to_results}/{llm}.csv")
-            results_dict[llm]['success'] = (
-                    results_dict[llm]['truth_norm'] == results_dict[llm]['pred_norm']).astype(int)
+    def _load_dataset_results(self,):
+        if ".pkl" in self.path_to_results or ".pickle" in self.path_to_results:
+            # If path to dataset is given as a pickle file, assume it is already in the results_dict format
+            with open(self.path_to_results, "rb") as file:
+                results_dict = pickle.load(file)
+
+        else:
+            # If path to dataset is a directory, assume that it contains csv files under each LLM's name
+            results_dict = {}
+            for llm in self.llms:
+                results_dict[llm] = pd.read_csv(f"{self.path_to_results}/{llm}.csv")
+                results_dict[llm]['success'] = (
+                        results_dict[llm]['truth_norm'] == results_dict[llm]['pred_norm']).astype(int)
+
         return results_dict
 
     def _extract_labels_dicts(self, ):
