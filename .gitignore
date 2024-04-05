@@ -1,5 +1,6 @@
 # Pycharm specific
 .idea*
+.DS_Store
 
 # Environments
 venv
