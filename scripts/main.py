@@ -56,8 +56,13 @@ def main(path_to_config):
         explainer = Explainer(results_path=results_path,
                               llms=PARAMS["general"]["llms"], )
 
-        explainer.produce_stratified_shap_plots(**PARAMS["explaining"])
+        explainer.produce_stratified_shap_plots_with_multiple_llms(**PARAMS["explaining"])
+
+        explainer.produce_unstratified_shap_plots(plot_type=PARAMS["explaining"].plot_type,
+                                                  num_background_points=PARAMS["explaining"].num_background_points,
+                                                  seed=PARAMS["explaining"].seed,
+                                                  max_ngram_display=PARAMS["explaining"].max_ngram_display, )
 
 
 if __name__ == "__main__":
-    main(path_to_config="conf/cladder_uncleaned.yaml")
+    main(path_to_config="conf/cladder_cleaned.yaml")
