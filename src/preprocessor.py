@@ -1,12 +1,9 @@
-"""
-This file is made up of code written by different authors (both internal and external to Univ. of Cambridge).
-In the absence of specification, the code was produced by Matteo G Mecattaf.
-"""
-
+""" This file is made up of code snippets and functions written by various authors (Google or Univ. of Cambridge)."""
 import pickle
+
 import numpy as np
-from tqdm import tqdm
 import pandas as pd
+
 from sklearn.model_selection import train_test_split
 from sklearn.feature_extraction.text import TfidfVectorizer
 from sklearn.feature_selection import SelectKBest
@@ -53,8 +50,7 @@ class Preprocessor:
         self._extract_labels_dicts()
         self._vectorise_prompts(self.train_dict, self.val_dict, self.test_dict)
 
-    # Authored by Marko Tesic, revised by Matteo G Mecattaf
-    def _load_dataset_results(self,):
+    def _load_dataset_results(self, ):
         if ".pkl" in self.path_to_results or ".pickle" in self.path_to_results:
             # If path to dataset is given as a pickle file, assume it is already in the results_dict format
             with open(self.path_to_results, "rb") as file:
@@ -75,7 +71,6 @@ class Preprocessor:
         self.val_labels_dict = {llm: self.val_dict[llm]["success"] for llm in self.llms}
         self.test_labels_dict = {llm: self.test_dict[llm]["success"] for llm in self.llms}
 
-    # Authored by Marko Tesic, revised by Matteo G Mecattaf
     def _split_data(self, results_dict, test_size=0.2):
         # Dictionaries to hold the training and test data
         self.train_dict = {}
@@ -98,7 +93,6 @@ class Preprocessor:
         with open(f'{self.results_path}/test_dict.pickle', 'wb') as handle:
             pickle.dump(self.test_dict, handle, protocol=pickle.HIGHEST_PROTOCOL)
 
-    # Authored by Google, revised by Matteo G Mecattaf
     def _vectorise_prompts(self, train_dict, val_dict, test_dict):
         # Initialise return variables
         self.x_train_dict = {}
@@ -186,8 +180,6 @@ def check_preprocessor_example():
 
     preprocessor = Preprocessor(**kwargs)
     preprocessor.preprocess_dataset()
-
-    print("Exit ok")
 
 
 if __name__ == "__main__":

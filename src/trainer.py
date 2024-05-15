@@ -1,6 +1,4 @@
-import pickle
-from dataclasses import dataclass
-
+""" This file is made up of code snippets and functions written by various authors (Google or Univ. of Cambridge)."""
 import numpy as np
 import pandas as pd
 import tensorflow as tf
@@ -37,7 +35,6 @@ class Trainer:
         self.units = units
         self.dropout_rate = dropout_rate
 
-    # Authored by Google (or MT TODO: check)
     def train_ngram_model(self,
                           x_train_dict,
                           x_val_dict,
@@ -166,7 +163,6 @@ class Trainer:
         self._plot_calibration_curves(plot_root_path, probabilities, test_dict)
         self._plot_reliability_diagrams(plot_root_path, probabilities, test_dict)
 
-    # Authored by Google (or MT TODO: check)
     def _get_last_layer_units_and_activation(self, ):
         """Gets the # units and activation function for the last network layer.
 
@@ -184,7 +180,6 @@ class Trainer:
             units = self.num_classes
         return units, activation
 
-    # # Authored by Google (or MT TODO: check)
     def _create_mlp_model(self, layers, units, dropout_rate, input_shape, num_classes):
         """Creates an instance of a multi-layer perceptron model.
 
