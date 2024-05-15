@@ -1,5 +1,5 @@
 general:
-  llms: [gpt3.04, gpt3.5, gpt3.041, gpt3.042, gpt3.043, gpt4_1106_cot, gpt4_1106, llama007]
+  llms: [gpt3.04, gpt3.041, gpt3.042, gpt3.043, gpt3.5, gpt4_1106_cot, gpt4_1106, llama007]
   num_classes: 2
   results_path: results # Root folder to save the trained ngram-MLPs to within which the timestamped folder will live
 
@@ -22,11 +22,11 @@ training:
   batch_size: 128
   layers: 2
   units: 64
-  dropout_rate: 0.2
+  dropout_rate: 0.9
 
 explaining:
-  strats: [rung, sensical]
+  strats: [rung, query_type, sensical, phenomenon]
   plot_type: violin
-  num_background_points: 100
+  num_background_points: 200
   seed: 10
   max_ngram_display: 20
