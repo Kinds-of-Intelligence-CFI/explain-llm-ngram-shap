@@ -1,5 +1,6 @@
 """ This file is made up of code snippets and functions written by various authors (Google or Univ. of Cambridge)."""
 import pickle
+from typing import List, Dict
 
 import numpy as np
 import pandas as pd
@@ -12,15 +13,15 @@ from sklearn.feature_selection import f_classif
 
 class Preprocessor:
     def __init__(self,
-                 llms,
-                 dataset_path,
-                 ngram_range,
-                 top_k_ngrams,
-                 token_mode,
-                 min_document_frequency,
-                 num_classes,
-                 results_path="results",
-                 split_ratio=0.2, ):
+                 llms: List[str],
+                 dataset_path: str,
+                 ngram_range: List[int],
+                 top_k_ngrams: int,
+                 token_mode: str,
+                 min_document_frequency: int,
+                 num_classes: int,
+                 results_path: str = "results",
+                 split_ratio: float = 0.2) -> None:
         self.llms = llms
         self.path_to_results = dataset_path
         self.ngram_range = tuple(ngram_range)
@@ -44,13 +45,13 @@ class Preprocessor:
         self.x_train_dict = None
         self.ngrams_dict = None
 
-    def preprocess_dataset(self, ):
+    def preprocess_dataset(self) -> None:
         results_dict = self._load_dataset_results()
         self._split_data(results_dict)
         self._extract_labels_dicts()
         self._vectorise_prompts(self.train_dict, self.val_dict, self.test_dict)
 
-    def _load_dataset_results(self, ):
+    def _load_dataset_results(self) -> Dict:
         if ".pkl" in self.path_to_results or ".pickle" in self.path_to_results:
             # If path to dataset is given as a pickle file, assume it is already in the results_dict format
             with open(self.path_to_results, "rb") as file:
@@ -66,12 +67,14 @@ class Preprocessor:
 
         return results_dict
 
-    def _extract_labels_dicts(self, ):
+    def _extract_labels_dicts(self) -> None:
         self.train_labels_dict = {llm: self.train_dict[llm]["success"] for llm in self.llms}
         self.val_labels_dict = {llm: self.val_dict[llm]["success"] for llm in self.llms}
         self.test_labels_dict = {llm: self.test_dict[llm]["success"] for llm in self.llms}
 
-    def _split_data(self, results_dict, test_size=0.2):
+    def _split_data(self,
+                    results_dict: Dict,
+                    test_size: float = 0.2) -> None:
         # Dictionaries to hold the training and test data
         self.train_dict = {}
         self.val_dict = {}
@@ -93,7 +96,10 @@ class Preprocessor:
         with open(f'{self.results_path}/test_dict.pickle', 'wb') as handle:
             pickle.dump(self.test_dict, handle, protocol=pickle.HIGHEST_PROTOCOL)
 
-    def _vectorise_prompts(self, train_dict, val_dict, test_dict):
+    def _vectorise_prompts(self,
+                           train_dict: Dict,
+                           val_dict: Dict,
+                           test_dict: Dict) -> None:
         # Initialise return variables
         self.x_train_dict = {}
         self.x_val_dict = {}
@@ -165,7 +171,7 @@ class Preprocessor:
             pickle.dump(self.ngrams_dict, handle, protocol=pickle.HIGHEST_PROTOCOL)
 
 
-def check_preprocessor_example():
+def check_preprocessor_example() -> None:
     kwargs = {
         "llms": ["gpt3.04", "gpt3.5", "gpt3.041", "gpt3.042", "gpt3.043", "gpt4_1106_cot", "gpt4_1106", "llama007"],
         "dataset_path": "datasets/cladder/outputs",

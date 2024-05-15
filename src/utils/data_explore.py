@@ -1,6 +1,6 @@
-# Authored by Google.
+"""Module fully authored by Google.
 
-"""Module to explore data.
+Module to explore data.
 
 Contains functions to help study, visualize and understand datasets.
 """
@@ -8,10 +8,10 @@ from __future__ import absolute_import
 from __future__ import division
 from __future__ import print_function
 
+from collections import Counter
+
 import numpy as np
 import matplotlib.pyplot as plt
-
-from collections import Counter
 from sklearn.feature_extraction.text import CountVectorizer
 
 

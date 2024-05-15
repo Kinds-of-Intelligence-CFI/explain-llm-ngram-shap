@@ -1,8 +1,10 @@
 import errno
 import pickle
 import os
+from typing import List
 
 import numpy as np
+import numpy.typing as npt
 import shap
 import tensorflow as tf
 from tensorflow.keras.saving import load_model
@@ -16,12 +18,12 @@ class Explainer:
     llms: list[str]
 
     def produce_unstratified_shap_plots(self,
-                                        plot_type,
-                                        num_background_points=200,
-                                        seed=0,
-                                        max_ngram_display=10,
-                                        show=False,
-                                        test_slice=slice(None, None, None)):
+                                        plot_type: str,
+                                        num_background_points: int = 200,
+                                        seed: int = 0,
+                                        max_ngram_display: int = 10,
+                                        show: bool = False,
+                                        test_slice: slice = slice(None, None, None)) -> None:
 
         with open(f'{self.results_path}/x_train_dict.pickle', 'rb') as handle:
             x_train_dict = pickle.load(handle)
@@ -125,12 +127,12 @@ class Explainer:
             plt.show()
 
     def produce_stratified_shap_plots(self,
-                                      strats,
-                                      plot_type,
-                                      num_background_points=100,
-                                      seed=0,
-                                      max_ngram_display=10,
-                                      show=False):
+                                      strata: List[str],
+                                      plot_type: str,
+                                      num_background_points: int = 100,
+                                      seed: int = 0,
+                                      max_ngram_display: int = 10,
+                                      show: bool = False) -> None:
         with open(f'{self.results_path}/x_train_dict.pickle', 'rb') as handle:
             x_train_dict = pickle.load(handle)
 
@@ -155,7 +157,7 @@ class Explainer:
         for llm in self.llms:
             print(llm)
 
-            for stratum_name in strats:
+            for stratum_name in strata:
                 print(stratum_name)
                 stratum_levels = set(test_dict[llm][stratum_name])
 
@@ -233,12 +235,12 @@ class Explainer:
                     plt.show()
 
     def produce_stratified_shap_plots_with_multiple_llms(self,
-                                                         strats,
-                                                         plot_type,
-                                                         num_background_points=100,
-                                                         seed=0,
-                                                         max_ngram_display=10,
-                                                         show=False):
+                                                         strata: List[str],
+                                                         plot_type: str,
+                                                         num_background_points: int = 100,
+                                                         seed: int = 0,
+                                                         max_ngram_display: int = 10,
+                                                         show: bool = False) -> None:
         with open(f'{self.results_path}/x_train_dict.pickle', 'rb') as handle:
             x_train_dict = pickle.load(handle)
 
@@ -260,7 +262,7 @@ class Explainer:
         with open(f'{self.results_path}/test_dict.pickle', 'rb') as handle:
             test_dict = pickle.load(handle)
 
-        for stratum_name in strats:
+        for stratum_name in strata:
             print(stratum_name)
             # Note: we are assuming that all LLMs have the same strata (i.e. that there are enough data points
             # in the test set to span all categories)
@@ -341,10 +343,9 @@ class Explainer:
                 plt.show()
 
     @staticmethod
-    def _analyse_tf_idf_value_distribution_in(arr: np.ndarray[np.ndarray],
-                                              ngrams: np.ndarray[float],
-                                              ngram: str,
-                                              ) -> None:
+    def _analyse_tf_idf_value_distribution_in(arr: npt.NDArray[npt.NDArray],
+                                              ngrams: npt.NDArray[float],
+                                              ngram: str) -> None:
         # Note: arr is an array of TF-IDF arrays. The TF-IDF arrays are of the same length as the ngrams array
         ngram_tf_idf = arr[:, ngrams == ngram]
         ngram_tf_idf = ngram_tf_idf[ngram_tf_idf != 0]
@@ -361,7 +362,7 @@ class Explainer:
             print(f"TF-IDF component values for {ngram} are all 0 in explainer training set.")
 
 
-def check_explainer_example():
+def check_explainer_example() -> None:
     results_path = "results/top_10000_ngrams"
     llms = ["gpt3.04", "gpt3.041", "gpt3.042", "gpt3.043", "gpt3.5", "gpt4_1106_cot", "gpt4_1106", "llama007"]
 
@@ -384,8 +385,7 @@ def check_explainer_example():
     explainer.produce_unstratified_shap_plots(plot_type=plot_type,
                                               num_background_points=num_background_points,
                                               seed=seed,
-                                              max_ngram_display=max_ngram_display,
-                                              )
+                                              max_ngram_display=max_ngram_display)
 
     print("Exit ok")
 
