@@ -214,13 +214,13 @@ class Trainer:
                               training_output: Dict) -> None:
         # Determine the layout of the subplots
         n_llms = len(self.llms)
-        ncols = 4
-        nrows = n_llms // ncols + (n_llms % ncols > 0)
+        num_columns = 4
+        num_rows = n_llms // num_columns + (n_llms % num_columns > 0)
 
-        plt.figure(figsize=(ncols * 10, nrows * 8))
+        plt.figure(figsize=(num_columns * 10, num_rows * 8))
 
         for index, llm in enumerate(training_output):
-            ax = plt.subplot(nrows, ncols, index + 1)
+            ax = plt.subplot(num_rows, num_columns, index + 1)
 
             # Create a DataFrame for the current llm
             df_loss = pd.DataFrame({
@@ -331,7 +331,7 @@ class Trainer:
             plt.xlabel('Mean Confidence')
             plt.ylabel('Accuracy')
 
-            plt.annotate(f'Expected Callibration Error = {sum_error:.2f}', xy=(0.5, 0.1), xycoords='axes fraction',
+            plt.annotate(f'Expected Calibration Error = {sum_error:.2f}', xy=(0.5, 0.1), xycoords='axes fraction',
                          ha='center', va='bottom', color='red')
 
         plt.tight_layout()

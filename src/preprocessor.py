@@ -1,5 +1,6 @@
-""" This file is made up of code snippets and functions written by various authors (Google or Univ. of Cambridge)."""
+"""This file is made up of code snippets and functions written by various authors (Google or Univ. of Cambridge)."""
 import pickle
+import warnings
 from typing import List, Dict
 
 import numpy as np
@@ -21,7 +22,8 @@ class Preprocessor:
                  min_document_frequency: int,
                  num_classes: int,
                  results_path: str = "results",
-                 split_ratio: float = 0.2) -> None:
+                 split_ratio: float = 0.2,
+                 experiment: str = "llm_performance") -> None:
         self.llms = llms
         self.path_to_results = dataset_path
         self.ngram_range = tuple(ngram_range)
@@ -31,6 +33,7 @@ class Preprocessor:
         self.num_classes = num_classes
         self.split_ratio = split_ratio
         self.results_path = results_path
+        self.experiment = experiment
 
         self.train_dict = None
         self.val_dict = None
@@ -46,41 +49,44 @@ class Preprocessor:
         self.ngrams_dict = None
 
     def preprocess_dataset(self) -> None:
-        results_dict = self._load_dataset_results()
-        self._split_data(results_dict)
+        results_dict = self._load_pickled_dataset_results()
+        self._split_data_into_train_val_test_sets(results_dict)
         self._extract_labels_dicts()
         self._vectorise_prompts(self.train_dict, self.val_dict, self.test_dict)
 
-    def _load_dataset_results(self) -> Dict:
-        if ".pkl" in self.path_to_results or ".pickle" in self.path_to_results:
-            # If path to dataset is given as a pickle file, assume it is already in the results_dict format
-            with open(self.path_to_results, "rb") as file:
-                results_dict = pickle.load(file)
+    def _load_pickled_dataset_results(self) -> Dict:
+        with open(self.path_to_results, "rb") as file:
+            results_dict = pickle.load(file)
+        return results_dict
 
-        else:
-            # If path to dataset is a directory, assume that it contains csv files under each LLM's name
-            results_dict = {}
-            for llm in self.llms:
-                results_dict[llm] = pd.read_csv(f"{self.path_to_results}/{llm}.csv")
-                results_dict[llm]['success'] = (
-                        results_dict[llm]['truth_norm'] == results_dict[llm]['pred_norm']).astype(int)
-
+    def _load_folder_of_csvs_dataset_results(self) -> Dict:
+        # If path to dataset is a directory, assume that it contains csv files under each LLM's name
+        results_dict = {}
+        for llm in self.llms:
+            results_dict[llm] = pd.read_csv(f"{self.path_to_results}/{llm}.csv")
+            results_dict[llm]['success'] = (
+                    results_dict[llm]['truth_norm'] == results_dict[llm]['pred_norm']).astype(int)
         return results_dict
 
     def _extract_labels_dicts(self) -> None:
-        self.train_labels_dict = {llm: self.train_dict[llm]["success"] for llm in self.llms}
-        self.val_labels_dict = {llm: self.val_dict[llm]["success"] for llm in self.llms}
-        self.test_labels_dict = {llm: self.test_dict[llm]["success"] for llm in self.llms}
+        if self.experiment == "llm_performance":
+            self.train_labels_dict = {llm: self.train_dict[llm]["success"] for llm in self.llms}
+            self.val_labels_dict = {llm: self.val_dict[llm]["success"] for llm in self.llms}
+            self.test_labels_dict = {llm: self.test_dict[llm]["success"] for llm in self.llms}
+        elif self.experiment == "ground_truth":
+            self.train_labels_dict = {llm: self.train_dict[llm]["truth_norm"] for llm in self.llms}
+            self.val_labels_dict = {llm: self.val_dict[llm]["truth_norm"] for llm in self.llms}
+            self.test_labels_dict = {llm: self.test_dict[llm]["truth_norm"] for llm in self.llms}
 
-    def _split_data(self,
-                    results_dict: Dict,
-                    test_size: float = 0.2) -> None:
+    def _split_data_into_train_val_test_sets(self,
+                                             complete_data: Dict,
+                                             test_size: float = 0.2) -> None:
         # Dictionaries to hold the training and test data
         self.train_dict = {}
         self.val_dict = {}
         self.test_dict = {}
 
-        for llm, df in results_dict.items():
+        for llm, df in complete_data.items():
             train_data, temp_data = train_test_split(df, test_size=test_size, random_state=42)
             val_data, test_data = train_test_split(temp_data, test_size=0.5, random_state=42)
             self.train_dict[llm] = train_data

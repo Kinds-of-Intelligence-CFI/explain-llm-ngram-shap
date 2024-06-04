@@ -1,5 +1,6 @@
 import os
 from datetime import datetime
+import pickle
 
 import yaml
 
@@ -44,7 +45,7 @@ def main(path_to_config):
                                                                               x_val_dict=preprocessor.x_val_dict,
                                                                               x_test_dict=preprocessor.x_test_dict,
                                                                               train_labels_dict=preprocessor.train_labels_dict,
-                                                                              val_labels_dict=preprocessor.val_labels_dict, )
+                                                                              val_labels_dict=preprocessor.val_labels_dict)
 
         trainer.produce_all_training_plots(test_dict=preprocessor.test_dict,
                                            history_acc_dict=train_acc_dict,
@@ -58,10 +59,10 @@ def main(path_to_config):
 
         explainer.produce_stratified_shap_plots_with_multiple_llms(**PARAMS["explaining"])
 
-        explainer.produce_unstratified_shap_plots(plot_type=PARAMS["explaining"].plot_type,
-                                                  num_background_points=PARAMS["explaining"].num_background_points,
-                                                  seed=PARAMS["explaining"].seed,
-                                                  max_ngram_display=PARAMS["explaining"].max_ngram_display, )
+        explainer.produce_unstratified_shap_plots(plot_type=PARAMS["explaining"]["plot_type"],
+                                                  num_background_points=PARAMS["explaining"]["num_background_points"],
+                                                  seed=PARAMS["explaining"]["seed"],
+                                                  max_ngram_display=PARAMS["explaining"]["max_ngram_display"],)
 
 
 if __name__ == "__main__":

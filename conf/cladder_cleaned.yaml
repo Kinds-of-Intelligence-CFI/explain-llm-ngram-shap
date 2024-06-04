@@ -2,11 +2,12 @@ general:
   llms: [gpt3.04, gpt3.041, gpt3.042, gpt3.043, gpt3.5, gpt4_1106_cot, gpt4_1106, llama007]
   num_classes: 2
   results_path: results # Root folder to save the trained ngram-MLPs to within which the timestamped folder will live
+  experiment: ground_truth # Can be llm_performance or ground_truth (this affects which quantity the MLP is predicting)
 
 instructions:
   do_preprocessing: 1
   do_training: 1
-  do_explaining: 0
+  do_explaining: 1
 
 preprocessing:
   dataset_path: datasets/cladder/cladder_clean.pkl
@@ -22,11 +23,11 @@ training:
   batch_size: 128
   layers: 2
   units: 64
-  dropout_rate: 0.9
+  dropout_rate: 0.8
 
 explaining:
-  strats: [rung, query_type, sensical, phenomenon]
+  strata: [rung, query_type, sensical, phenomenon]
   plot_type: violin
-  num_background_points: 200
+  num_background_points: 1000
   seed: 10
   max_ngram_display: 20

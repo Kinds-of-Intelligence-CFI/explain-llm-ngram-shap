@@ -77,7 +77,7 @@ class Explainer:
             explanation = shap.Explanation(values=shap_values[:, :, 0],
                                            base_values=[base_value] * len(shap_values),
                                            # See notion/the_various_shap_plots
-                                           data=x_test,
+                                           data=x_test,  # TODO: changed this to whole set from x_test previously!
                                            feature_names=ngrams)
 
             plt.subplot(num_rows, num_cols, ix + 1)
@@ -196,7 +196,7 @@ class Explainer:
                     explanation = shap.Explanation(values=shap_values[:, :, 0],
                                                    base_values=[base_value] * len(shap_values),
                                                    # See notion/the_various_shap_plots
-                                                   data=x_test,
+                                                   data=x_test,  # TODO: changed this to whole set from x_test previously!
                                                    feature_names=ngrams)
 
                     plt.subplot(num_rows, num_cols, ix + 1)
@@ -303,7 +303,7 @@ class Explainer:
                     explanation = shap.Explanation(values=shap_values[:, :, 0],
                                                    base_values=[base_value] * len(shap_values),
                                                    # See notion/the_various_shap_plots
-                                                   data=x_test,
+                                                   data=x_test, # TODO: changed this to whole set from x_test previously!
                                                    feature_names=ngrams)
 
                     plt.subplot(num_rows, num_cols, subplot_ix+1)
@@ -363,7 +363,7 @@ class Explainer:
 
 
 def check_explainer_example() -> None:
-    results_path = "results/top_10000_ngrams"
+    results_path = "results/dropout_0_8_1000_background_points"
     llms = ["gpt3.04", "gpt3.041", "gpt3.042", "gpt3.043", "gpt3.5", "gpt4_1106_cot", "gpt4_1106", "llama007"]
 
     plot_type = "violin"
@@ -373,13 +373,13 @@ def check_explainer_example() -> None:
 
     explainer = Explainer(results_path=results_path, llms=llms, )
 
-    # # Stratified plots
-    # strats = ["query_type", "sensical", "phenomenon", ]  # ["query_type", "sensical", "phenomenon", "rung",]
-    # explainer.produce_stratified_shap_plots_with_multiple_llms(strats=strats,
-    #                                                            plot_type=plot_type,
-    #                                                            num_background_points=num_background_points,
-    #                                                            seed=seed,
-    #                                                            max_ngram_display=max_ngram_display)
+    # Stratified plots
+    strata = ["rung", "query_type", "sensical", "phenomenon"]  # ["rung", "query_type", "sensical", "phenomenon"]
+    explainer.produce_stratified_shap_plots_with_multiple_llms(strata=strata,
+                                                               plot_type=plot_type,
+                                                               num_background_points=num_background_points,
+                                                               seed=seed,
+                                                               max_ngram_display=max_ngram_display)
 
     # General, unstratified plots
     explainer.produce_unstratified_shap_plots(plot_type=plot_type,
