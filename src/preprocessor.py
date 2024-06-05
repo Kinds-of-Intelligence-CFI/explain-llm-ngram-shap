@@ -1,6 +1,5 @@
 """This file is made up of code snippets and functions written by various authors (Google or Univ. of Cambridge)."""
 import pickle
-import warnings
 from typing import List, Dict
 
 import numpy as np
@@ -13,6 +12,7 @@ from sklearn.feature_selection import f_classif
 
 
 class Preprocessor:
+    RANDOM_SEED_SPLITTING = 42
     def __init__(self,
                  llms: List[str],
                  dataset_path: str,
@@ -23,7 +23,7 @@ class Preprocessor:
                  num_classes: int,
                  results_path: str = "results",
                  split_ratio: float = 0.2,
-                 experiment: str = "llm_performance") -> None:
+                 target_variable: str = "success") -> None:
         self.llms = llms
         self.path_to_results = dataset_path
         self.ngram_range = tuple(ngram_range)
@@ -33,7 +33,12 @@ class Preprocessor:
         self.num_classes = num_classes
         self.split_ratio = split_ratio
         self.results_path = results_path
-        self.experiment = experiment
+
+        POSSIBLE_TARGET_VARIABLES = ["success", "truth_norm"]
+        if target_variable not in POSSIBLE_TARGET_VARIABLES:
+            raise ValueError(f"Please pass a dataset_fold from the following options: {POSSIBLE_TARGET_VARIABLES}")
+
+        self.target_variable = target_variable
 
         self.train_dict = None
         self.val_dict = None
@@ -69,14 +74,9 @@ class Preprocessor:
         return results_dict
 
     def _extract_labels_dicts(self) -> None:
-        if self.experiment == "llm_performance":
-            self.train_labels_dict = {llm: self.train_dict[llm]["success"] for llm in self.llms}
-            self.val_labels_dict = {llm: self.val_dict[llm]["success"] for llm in self.llms}
-            self.test_labels_dict = {llm: self.test_dict[llm]["success"] for llm in self.llms}
-        elif self.experiment == "ground_truth":
-            self.train_labels_dict = {llm: self.train_dict[llm]["truth_norm"] for llm in self.llms}
-            self.val_labels_dict = {llm: self.val_dict[llm]["truth_norm"] for llm in self.llms}
-            self.test_labels_dict = {llm: self.test_dict[llm]["truth_norm"] for llm in self.llms}
+        self.train_labels_dict = {llm: self.train_dict[llm][self.target_variable] for llm in self.llms}
+        self.val_labels_dict = {llm: self.val_dict[llm][self.target_variable] for llm in self.llms}
+        self.test_labels_dict = {llm: self.test_dict[llm][self.target_variable] for llm in self.llms}
 
     def _split_data_into_train_val_test_sets(self,
                                              complete_data: Dict,
@@ -87,8 +87,8 @@ class Preprocessor:
         self.test_dict = {}
 
         for llm, df in complete_data.items():
-            train_data, temp_data = train_test_split(df, test_size=test_size, random_state=42)
-            val_data, test_data = train_test_split(temp_data, test_size=0.5, random_state=42)
+            train_data, temp_data = train_test_split(df, test_size=test_size, random_state=self.RANDOM_SEED_SPLITTING)
+            val_data, test_data = train_test_split(temp_data, test_size=0.5, random_state=self.RANDOM_SEED_SPLITTING)
             self.train_dict[llm] = train_data
             self.val_dict[llm] = val_data
             self.test_dict[llm] = test_data

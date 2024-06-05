@@ -2,12 +2,12 @@ general:
   llms: [gpt3.04, gpt3.041, gpt3.042, gpt3.043, gpt3.5, gpt4_1106_cot, gpt4_1106, llama007]
   num_classes: 2
   results_path: results # Root folder to save the trained ngram-MLPs to within which the timestamped folder will live
-  experiment: ground_truth # Can be llm_performance or ground_truth (this affects which quantity the MLP is predicting)
+  target_variable: truth_norm # Can be success or ground_truth (this affects which quantity the MLP is predicting)
 
 instructions:
   do_preprocessing: 1
   do_training: 1
-  do_explaining: 1
+  do_explaining: 0
 
 preprocessing:
   dataset_path: datasets/cladder/cladder_clean.pkl

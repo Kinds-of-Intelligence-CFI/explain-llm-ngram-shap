@@ -26,7 +26,8 @@ class Trainer:
                  batch_size: int = 128,
                  layers: int = 2,
                  units: int = 64,
-                 dropout_rate: float = 0.2) -> None:
+                 dropout_rate: float = 0.2,
+                 target_variable: str = "llm_performance") -> None:
         self.llms = llms
         self.results_path = results_path
         self.num_classes = num_classes
@@ -36,6 +37,7 @@ class Trainer:
         self.layers = layers
         self.units = units
         self.dropout_rate = dropout_rate
+        self.target_variable = target_variable
 
     def train_ngram_model(self,
                           x_train_dict: Dict,
@@ -142,16 +144,16 @@ class Trainer:
             probabilities_e[llm] = y_pred_e
             training_output[llm] = pd.DataFrame({'training_accuracy': acc, 'validation_accuracy': val_acc})
             method_name = 'n_gram'
-            BrierScore, Calibration, Refinement = brier_decomposition(probabilities[llm], test_dict[llm]['success'])
-            # BrierScore_e, Calibration_e, Refinement_e = brierDecomp(probabilities[llm], test_dict[llm]['success'])
-            roc_auc = roc_auc_score(test_dict[llm]['success'], probabilities[llm])
-            # brier_score_loss_sklearn = brier_score_loss(test_dict[llm]['success'], probabilities[llm])
-            prec = precision_score(test_dict[llm]['success'], [1 if p > 0.5 else 0 for p in probabilities[llm]])
-            recall = recall_score(test_dict[llm]['success'], [1 if p > 0.5 else 0 for p in probabilities[llm]])
-            f1 = f1_score(test_dict[llm]['success'], [1 if p > 0.5 else 0 for p in probabilities[llm]])
+            BrierScore, Calibration, Refinement = brier_decomposition(probabilities[llm], test_dict[llm][self.target_variable])
+            # BrierScore_e, Calibration_e, Refinement_e = brierDecomp(probabilities[llm], test_dict[llm][self.target_variable])
+            roc_auc = roc_auc_score(test_dict[llm][self.target_variable], probabilities[llm])
+            # brier_score_loss_sklearn = brier_score_loss(test_dict[llm][self.target_variable], probabilities[llm])
+            prec = precision_score(test_dict[llm][self.target_variable], [1 if p > 0.5 else 0 for p in probabilities[llm]])
+            recall = recall_score(test_dict[llm][self.target_variable], [1 if p > 0.5 else 0 for p in probabilities[llm]])
+            f1 = f1_score(test_dict[llm][self.target_variable], [1 if p > 0.5 else 0 for p in probabilities[llm]])
             # compute accuracy by thresholding at 0.5
             y_pred_binary = probabilities[llm] > 0.5
-            accuracy = np.mean(y_pred_binary == test_dict[llm]['success'])
+            accuracy = np.mean(y_pred_binary == test_dict[llm][self.target_variable])
             res = pd.concat([res, pd.DataFrame(
                 {"predictive_method": method_name, "llm": llm, "BrierScore": BrierScore,
                  "Calibration": Calibration, "Refinement": Refinement, "AUROC": roc_auc,
@@ -279,7 +281,7 @@ class Trainer:
 
         # Plot calibration curves for all models on the same axes
         for llm in self.llms:
-            prob_true, prob_pred = calibration_curve(test_dict[llm]['success'], probabilities[llm], n_bins=n_bins,
+            prob_true, prob_pred = calibration_curve(test_dict[llm][self.target_variable], probabilities[llm], n_bins=n_bins,
                                                      strategy='uniform')
             sns.lineplot(x=prob_pred, y=prob_true, marker='o', label=f'{llm}')
 
@@ -308,7 +310,7 @@ class Trainer:
 
             df_temp = pd.DataFrame({
                 'predictions': probabilities[llm],
-                'true_label': test_dict[llm]['success']
+                'true_label': test_dict[llm][self.target_variable]
             })
 
             bin_data = []
